@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Daily Planner</title>
+<link rel="manifest" href="manifest.json" />
+<link rel="apple-touch-icon" href="icon-512.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Planner" />
+<meta name="theme-color" content="#EDEAE1" />
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #EDEAE1; --ink: #24261F; --accent: #3E6259; --accent-soft: #C9D6C9;
+    --line: #C9C4B8; --line-soft: #DEDACD; --muted: #8B8677; --rust: #B5502F;
+    --ring-track: #DEDACD; --field-bg: #E4E0D3;
+  }
+  [data-theme="dark"] {
+    --bg: #1D1F19; --ink: #EDEAE1; --accent: #7FBBA0; --accent-soft: #33463D;
+    --line: #3C3E35; --line-soft: #2C2E27; --muted: #8F9186; --rust: #DB8267;
+    --ring-track: #2C2E27; --field-bg: #26281F;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    background: var(--bg); color: var(--ink);
+    min-height: 100vh;
+    transition: background 0.25s ease, color 0.25s ease;
+  }
+  #wrap { max-width: 480px; margin: 0 auto; padding: 40px 20px 60px; }
+  button { font-family: inherit; }
+  .icon-btn {
+    background: none; border: none; cursor: pointer; color: var(--muted);
+    display: flex; align-items: center; padding: 8px; font-size: 19px; transition: color 0.15s ease;
+  }
+  .icon-btn:hover { color: var(--ink); }
+  .top-row { display: flex; justify-content: flex-end; margin-bottom: 4px; }
+  .nav-row { display: flex; align-items: center; justify-content: space-between; }
+  .date-block { display: flex; align-items: center; gap: 18px; }
+  .weekday { font-size: 15px; color: var(--muted); letter-spacing: 0.02em; text-align: center; }
+  .monthday { font-family: 'Fraunces', serif; font-size: 36px; font-weight: 500; margin-top: 2px; text-align: center; }
+  .sub-row { display: flex; justify-content: center; gap: 14px; margin-top: 10px; font-size: 14px; color: var(--muted); }
+  .link-btn { background: none; border: none; color: var(--accent); cursor: pointer; font-size: 14px; font-family: inherit; }
+  .divider { border-top: 1px solid var(--line); margin-top: 20px; }
+  .task-row {
+    display: flex; align-items: center; gap: 10px; padding: 12px 2px;
+    border-bottom: 1px solid var(--line-soft); transition: opacity 0.15s ease;
+  }
+  .task-row.skipped { opacity: 0.55; }
+  .task-row .side-btn { opacity: 0.55; transition: opacity 0.15s ease; }
+  .task-row:hover .side-btn { opacity: 1; }
+  .task-row .side-btn.is-on { opacity: 1; color: var(--rust) !important; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .task-check {
+    appearance: none; -webkit-appearance: none; width: 25px; height: 25px; min-width: 25px;
+    border: 1.5px solid var(--muted); border-radius: 4px; cursor: pointer; position: relative;
+    background: transparent; flex-shrink: 0; transition: background 0.15s ease, border-color 0.15s ease;
+  }
+  .task-check:checked { background: var(--dot-color, var(--accent)); border-color: var(--dot-color, var(--accent)); }
+  .task-check:checked::after {
+    content: ""; position: absolute; left: 7px; top: 3px; width: 7px; height: 12px;
+    border: solid var(--bg); border-width: 0 2px 2px 0; transform: rotate(40deg);
+  }
+  .task-time { font-size: 13.5px; color: var(--muted); min-width: 58px; }
+  .task-text { flex: 1; font-size: 17px; cursor: text; }
+  .task-text.done { text-decoration: line-through; color: var(--muted); }
+  .task-text.skipped-text { text-decoration: line-through; }
+  .task-edit-input {
+    flex: 1; font-family: inherit; font-size: 17px; color: var(--ink); background: var(--field-bg);
+    border: none; border-radius: 4px; padding: 3px 6px; outline: none;
+  }
+  .skip-label { font-size: 12.5px; margin-left: 6px; color: var(--muted); }
+  .empty-msg { color: var(--muted); font-size: 15px; padding: 20px 2px; }
+  .add-row { display: flex; align-items: center; gap: 8px; padding: 14px 2px; margin-top: 4px; flex-wrap: wrap; }
+  .add-row input[type="text"] {
+    flex: 1; min-width: 100px; border: none; background: transparent; outline: none;
+    font-family: inherit; font-size: 17px; color: var(--ink);
+  }
+  .add-row input[type="text"]::placeholder { color: var(--muted); }
+  .time-input {
+    border: none; background: var(--field-bg); color: var(--ink); font-family: inherit;
+    font-size: 14px; border-radius: 4px; padding: 6px 7px; outline: none; width: 96px;
+  }
+  .swatch {
+    width: 18px; height: 18px; border-radius: 50%; cursor: pointer;
+    border: 2px solid transparent; transition: transform 0.1s ease;
+  }
+  .swatch:hover { transform: scale(1.15); }
+  .swatch.selected { border-color: var(--ink); }
+  @keyframes pop { 0% { transform: scale(1); } 40% { transform: scale(1.03); } 100% { transform: scale(1); } }
+  .celebrate {
+    margin-top: 10px; padding: 11px 14px; background: var(--accent-soft); color: var(--accent);
+    border-radius: 6px; font-size: 15px; text-align: center; animation: pop 0.4s ease;
+  }
+  .footer-row { display: flex; justify-content: space-between; align-items: flex-end; }
+  .footer-label { font-size: 13.5px; color: var(--muted); }
+  .heatmap { display: flex; gap: 5px; }
+  .heatmap div { width: 15px; height: 15px; border-radius: 3px; }
+  .notes-label { font-size: 13.5px; color: var(--muted); margin-bottom: 6px; }
+  #notes-input {
+    width: 100%; box-sizing: border-box; border: none; background: transparent; color: var(--ink);
+    font-family: inherit; font-size: 15px; line-height: 1.6; outline: none; resize: vertical; min-height: 48px;
+  }
+  #notes-input::placeholder { color: var(--muted); }
+  .backup-row { display: flex; gap: 10px; margin-top: 4px; }
+  .backup-btn {
+    border: 1px solid var(--line); background: transparent; color: var(--muted); font-family: inherit;
+    font-size: 13px; padding: 7px 11px; border-radius: 5px; cursor: pointer;
+  }
+  .backup-btn:hover { color: var(--ink); border-color: var(--muted); }
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: var(--ink); color: var(--bg); font-size: 13.5px; padding: 10px 16px;
+    border-radius: 6px; display: flex; gap: 12px; align-items: center; z-index: 10;
+  }
+  .toast button { background: none; border: none; color: var(--accent-soft); font-family: inherit; font-size: 13.5px; cursor: pointer; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div class="top-row">
+    <button class="icon-btn" id="theme-btn" aria-label="Toggle dark mode">&#9789;</button>
+  </div>
+
+  <div class="nav-row">
+    <button class="icon-btn" id="prev-btn" aria-label="Previous day">&#8249;</button>
+    <div class="date-block">
+      <svg id="ring-svg" width="60" height="60" style="transform: rotate(-90deg);">
+        <circle cx="30" cy="30" r="26" fill="none" stroke="var(--ring-track)" stroke-width="4"></circle>
+        <circle id="ring-fg" cx="30" cy="30" r="26" fill="none" stroke="var(--accent)" stroke-width="4"
+          stroke-linecap="round" style="transition: stroke-dashoffset 0.3s ease;"></circle>
+      </svg>
+      <div>
+        <div class="weekday" id="weekday-text"></div>
+        <div class="monthday" id="monthday-text"></div>
+      </div>
+    </div>
+    <button class="icon-btn" id="next-btn" aria-label="Next day">&#8250;</button>
+  </div>
+
+  <div class="sub-row">
+    <button class="link-btn" id="back-today-btn" style="display:none;">back to today</button>
+    <span id="streak-text"></span>
+  </div>
+
+  <div class="divider"></div>
+  <div id="task-list"></div>
+
+  <div class="add-row">
+    <span style="color: var(--muted); flex-shrink:0;">+</span>
+    <input type="text" id="draft-input" placeholder="add a task" enterkeyhint="done" />
+    <input type="time" class="time-input" id="time-input" aria-label="Optional time" />
+    <div style="display:flex; gap:6px; flex-shrink:0;" id="swatch-row"></div>
+    <button id="add-btn" type="button" style="border:none; background:var(--accent); color:var(--bg); font-family:inherit; font-size:13px; padding:7px 12px; border-radius:5px; cursor:pointer; flex-shrink:0;">Add</button>
+  </div>
+
+  <div id="celebrate-slot"></div>
+
+  <div class="divider" style="margin-top:20px; padding-top:0;"></div>
+  <div style="padding-top:18px;">
+    <div class="footer-row">
+      <div class="footer-label" id="footer-count"></div>
+      <div class="heatmap" id="heatmap"></div>
+    </div>
+  </div>
+
+  <div class="divider" style="margin-top:18px;"></div>
+  <div style="padding-top:14px;">
+    <div class="notes-label">notes for this week</div>
+    <textarea id="notes-input" placeholder="anything worth remembering this week…"></textarea>
+  </div>
+
+  <div class="divider" style="margin-top:18px;"></div>
+  <div style="padding-top:14px;">
+    <div class="notes-label">reminders</div>
+    <div class="backup-row">
+      <button class="backup-btn" id="notif-btn" type="button">Enable notifications</button>
+    </div>
+    <div style="font-size:12.5px; color:var(--muted); margin-top:8px; line-height:1.5;">
+      Notifies you when a task's time comes, as long as this tab stays open in your browser.
+    </div>
+  </div>
+
+  <div class="divider" style="margin-top:18px;"></div>
+  <div style="padding-top:14px;">
+    <div class="notes-label">backup</div>
+    <div class="backup-row">
+      <button class="backup-btn" id="export-btn" type="button">Export backup</button>
+      <button class="backup-btn" id="import-btn" type="button">Import backup</button>
+      <input type="file" id="import-file" accept="application/json" style="display:none;" />
+    </div>
+  </div>
+</div>
+<div id="toast-slot"></div>
+
+<script>
+const SWATCHES = ["#6B8E6B", "#5B7FA6", "#C79A3D", "#B5502F"];
+
+function dateKey(d) {
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+function addDays(d, n) { const c = new Date(d); c.setDate(c.getDate() + n); return c; }
+function last7Keys(from) { const k = []; for (let i = 6; i >= 0; i--) k.push(dateKey(addDays(from, -i))); return k; }
+function weekKey(d) {
+  const day = d.getDay();
+  const mondayOffset = day === 0 ? -6 : 1 - day;
+  return "wk-" + dateKey(addDays(d, mondayOffset));
+}
+function formatTime(t) {
+  if (!t) return "";
+  const [h, m] = t.split(":").map(Number);
+  const period = h >= 12 ? "pm" : "am";
+  const hour12 = h % 12 === 0 ? 12 : h % 12;
+  return hour12 + ":" + String(m).padStart(2, "0") + period;
+}
+function isDayComplete(tasks, completions, key) {
+  if (tasks.length === 0) return false;
+  const day = completions[key] || {};
+  const relevant = tasks.filter(t => day[t.id] !== "skipped");
+  if (relevant.length === 0) return false;
+  return relevant.every(t => day[t.id] === "done");
+}
+function currentStreak(tasks, completions, today) {
+  if (tasks.length === 0) return 0;
+  let streak = 0, cursor = new Date(today);
+  while (isDayComplete(tasks, completions, dateKey(cursor))) { streak++; cursor = addDays(cursor, -1); }
+  return streak;
+}
+
+let state = {
+  tasks: JSON.parse(localStorage.getItem("planner_tasks") || "[]"),
+  completions: JSON.parse(localStorage.getItem("planner_completions") || "{}"),
+  notes: JSON.parse(localStorage.getItem("planner_notes") || "{}"),
+  theme: localStorage.getItem("planner_theme") || "light",
+  bestStreak: parseInt(localStorage.getItem("planner_best_streak") || "0", 10),
+  viewDate: new Date(),
+  draftColor: SWATCHES[0],
+};
+
+function save(key, value) { localStorage.setItem(key, JSON.stringify(value)); }
+
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+
+const el = id => document.getElementById(id);
+
+function applyTheme() {
+  document.documentElement.setAttribute("data-theme", state.theme);
+  el("theme-btn").innerHTML = state.theme === "light" ? "&#9789;" : "&#9728;";
+}
+
+function renderSwatches() {
+  const row = el("swatch-row");
+  row.innerHTML = "";
+  SWATCHES.forEach(c => {
+    const s = document.createElement("span");
+    s.className = "swatch" + (state.draftColor === c ? " selected" : "");
+    s.style.background = c;
+    s.onclick = () => { state.draftColor = c; renderSwatches(); };
+    row.appendChild(s);
+  });
+}
+
+function updateNotesField() {
+  el("notes-input").value = state.notes[weekKey(state.viewDate)] || "";
+}
+
+function render() {
+  const today = new Date();
+  const key = dateKey(state.viewDate);
+  const isToday = key === dateKey(today);
+
+  el("weekday-text").textContent = state.viewDate.toLocaleDateString(undefined, { weekday: "long" }) + (isToday ? "" : " · not today");
+  el("monthday-text").textContent = state.viewDate.toLocaleDateString(undefined, { month: "long", day: "numeric" });
+
+  el("back-today-btn").style.display = isToday ? "none" : "inline";
+
+  const dayStatus = state.completions[key] || {};
+  const activeTasks = state.tasks.filter(t => dayStatus[t.id] !== "skipped");
+  const doneCount = activeTasks.filter(t => dayStatus[t.id] === "done").length;
+  const pct = activeTasks.length === 0 ? 0 : doneCount / activeTasks.length;
+  const allDone = activeTasks.length > 0 && doneCount === activeTasks.length;
+
+  const R = 26, CIRC = 2 * Math.PI * R;
+  const ring = el("ring-fg");
+  ring.setAttribute("stroke-dasharray", CIRC);
+  ring.setAttribute("stroke-dashoffset", CIRC * (1 - pct));
+
+  const streak = currentStreak(state.tasks, state.completions, today);
+  if (streak > state.bestStreak) {
+    state.bestStreak = streak;
+    save("planner_best_streak", state.bestStreak);
+  }
+  el("streak-text").textContent = streak > 0
+    ? streak + "-day streak" + (state.bestStreak > streak ? " · best " + state.bestStreak : "")
+    : (state.bestStreak > 0 ? "best streak " + state.bestStreak : "");
+
+  const list = el("task-list");
+  list.innerHTML = "";
+  if (state.tasks.length === 0) {
+    const msg = document.createElement("div");
+    msg.className = "empty-msg";
+    msg.textContent = "No tasks yet. Add one below — it repeats every day until you remove it.";
+    list.appendChild(msg);
+  }
+  state.tasks.forEach((t, i) => {
+    const status = dayStatus[t.id];
+    const skipped = status === "skipped";
+    const row = document.createElement("div");
+    row.className = "task-row" + (skipped ? " skipped" : "");
+
+    const dot = document.createElement("span");
+    dot.className = "dot";
+    dot.style.background = t.color || "var(--accent)";
+    row.appendChild(dot);
+
+    const check = document.createElement("input");
+    check.type = "checkbox";
+    check.className = "task-check";
+    check.style.setProperty("--dot-color", t.color || null);
+    check.checked = status === "done";
+    check.disabled = skipped;
+    check.onchange = () => {
+      const day = { ...(state.completions[key] || {}) };
+      day[t.id] = day[t.id] === "done" ? undefined : "done";
+      state.completions = { ...state.completions, [key]: day };
+      save("planner_completions", state.completions);
+      render();
+    };
+    row.appendChild(check);
+
+    if (t.time) {
+      const tm = document.createElement("span");
+      tm.className = "task-time";
+      tm.textContent = formatTime(t.time);
+      row.appendChild(tm);
+    }
+
+    const text = document.createElement("span");
+    text.className = "task-text" + (status === "done" ? " done" : "") + (skipped ? " skipped-text" : "");
+    text.textContent = t.text;
+    text.title = "tap to edit";
+    if (skipped) {
+      const lbl = document.createElement("span");
+      lbl.className = "skip-label";
+      lbl.textContent = "skipped today";
+      text.appendChild(lbl);
+    }
+    text.onclick = () => {
+      const editInput = document.createElement("input");
+      editInput.type = "text";
+      editInput.className = "task-edit-input";
+      editInput.value = t.text;
+      row.replaceChild(editInput, text);
+      editInput.focus();
+      editInput.select();
+      const commit = () => {
+        const newText = editInput.value.trim();
+        if (newText && newText !== t.text) {
+          t.text = newText;
+          save("planner_tasks", state.tasks);
+        }
+        render();
+      };
+      editInput.addEventListener("blur", commit);
+      editInput.addEventListener("keydown", e => {
+        if (e.key === "Enter") editInput.blur();
+        if (e.key === "Escape") { editInput.removeEventListener("blur", commit); render(); }
+      });
+    };
+    row.appendChild(text);
+
+    const skipBtn = document.createElement("button");
+    skipBtn.className = "icon-btn side-btn" + (skipped ? " is-on" : "");
+    skipBtn.innerHTML = "&#8854;";
+    skipBtn.title = skipped ? "Unskip for today" : "Skip for today";
+    skipBtn.onclick = () => {
+      const day = { ...(state.completions[key] || {}) };
+      day[t.id] = day[t.id] === "skipped" ? undefined : "skipped";
+      state.completions = { ...state.completions, [key]: day };
+      save("planner_completions", state.completions);
+      render();
+    };
+    row.appendChild(skipBtn);
+
+    const upBtn = document.createElement("button");
+    upBtn.className = "icon-btn side-btn";
+    upBtn.innerHTML = "&#9650;";
+    upBtn.style.padding = "2px";
+    upBtn.onclick = () => {
+      if (i === 0) return;
+      const next = [...state.tasks];
+      [next[i], next[i - 1]] = [next[i - 1], next[i]];
+      state.tasks = next; save("planner_tasks", state.tasks); render();
+    };
+    row.appendChild(upBtn);
+
+    const downBtn = document.createElement("button");
+    downBtn.className = "icon-btn side-btn";
+    downBtn.innerHTML = "&#9660;";
+    downBtn.style.padding = "2px";
+    downBtn.onclick = () => {
+      if (i === state.tasks.length - 1) return;
+      const next = [...state.tasks];
+      [next[i], next[i + 1]] = [next[i + 1], next[i]];
+      state.tasks = next; save("planner_tasks", state.tasks); render();
+    };
+    row.appendChild(downBtn);
+
+    const delBtn = document.createElement("button");
+    delBtn.className = "side-btn";
+    delBtn.style.cssText = "background:none;border:none;cursor:pointer;color:var(--rust);display:flex;";
+    delBtn.innerHTML = "&#10005;";
+    delBtn.setAttribute("aria-label", "Remove " + t.text);
+    delBtn.onclick = () => {
+      state.tasks = state.tasks.filter(x => x.id !== t.id);
+      const nextC = {};
+      for (const k in state.completions) {
+        const day = { ...state.completions[k] };
+        delete day[t.id];
+        nextC[k] = day;
+      }
+      state.completions = nextC;
+      save("planner_tasks", state.tasks);
+      save("planner_completions", state.completions);
+      render();
+    };
+    row.appendChild(delBtn);
+
+    list.appendChild(row);
+  });
+
+  const celebrateSlot = el("celebrate-slot");
+  celebrateSlot.innerHTML = "";
+  if (allDone) {
+    const c = document.createElement("div");
+    c.className = "celebrate";
+    c.textContent = "everything's checked off for " + (isToday ? "today" : "this day");
+    celebrateSlot.appendChild(c);
+  }
+
+  el("footer-count").textContent = "last 7 days" + (state.tasks.length > 0 ? "  " + doneCount + "/" + activeTasks.length + " today" : "");
+
+  const heatmap = el("heatmap");
+  heatmap.innerHTML = "";
+  last7Keys(today).forEach(k => {
+    const day = state.completions[k] || {};
+    const relevant = state.tasks.filter(t => day[t.id] !== "skipped");
+    const done = relevant.filter(t => day[t.id] === "done").length;
+    const ratio = relevant.length === 0 ? 0 : done / relevant.length;
+    const box = document.createElement("div");
+    box.title = k;
+    box.style.background = ratio === 0 ? "var(--line-soft)" : ratio < 1 ? "var(--accent-soft)" : "var(--accent)";
+    box.style.border = k === key ? "1.5px solid var(--ink)" : "none";
+    heatmap.appendChild(box);
+  });
+}
+
+el("prev-btn").onclick = () => { state.viewDate = addDays(state.viewDate, -1); updateNotesField(); render(); };
+el("next-btn").onclick = () => { state.viewDate = addDays(state.viewDate, 1); updateNotesField(); render(); };
+el("back-today-btn").onclick = () => { state.viewDate = new Date(); updateNotesField(); render(); };
+el("theme-btn").onclick = () => {
+  state.theme = state.theme === "light" ? "dark" : "light";
+  save("planner_theme", state.theme);
+  applyTheme();
+};
+
+function addTaskFromDraft() {
+  const text = el("draft-input").value.trim();
+  if (!text) return;
+  const time = el("time-input").value || null;
+  state.tasks = [...state.tasks, { id: uid(), text, color: state.draftColor, time }];
+  save("planner_tasks", state.tasks);
+  el("draft-input").value = "";
+  el("time-input").value = "";
+  render();
+  el("draft-input").focus();
+}
+
+el("draft-input").addEventListener("keydown", e => {
+  if (e.key === "Enter") addTaskFromDraft();
+});
+el("add-btn").addEventListener("click", addTaskFromDraft);
+
+let notesTimer = null;
+el("notes-input").addEventListener("input", e => {
+  const wk = weekKey(state.viewDate);
+  state.notes = { ...state.notes, [wk]: e.target.value };
+  if (notesTimer) clearTimeout(notesTimer);
+  notesTimer = setTimeout(() => save("planner_notes", state.notes), 400);
+});
+
+function showToast(msg) {
+  const slot = el("toast-slot");
+  slot.innerHTML = "";
+  const t = document.createElement("div");
+  t.className = "toast";
+  t.textContent = msg;
+  slot.appendChild(t);
+  setTimeout(() => { if (slot.contains(t)) slot.removeChild(t); }, 2600);
+}
+
+el("export-btn").addEventListener("click", () => {
+  const backup = {
+    tasks: state.tasks,
+    completions: state.completions,
+    notes: state.notes,
+    theme: state.theme,
+    bestStreak: state.bestStreak,
+    exportedAt: new Date().toISOString(),
+  };
+  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "daily-planner-backup.json";
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast("Backup downloaded");
+});
+
+el("import-btn").addEventListener("click", () => el("import-file").click());
+el("import-file").addEventListener("change", e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = JSON.parse(reader.result);
+      if (!Array.isArray(data.tasks)) throw new Error("bad file");
+      state.tasks = data.tasks || [];
+      state.completions = data.completions || {};
+      state.notes = data.notes || {};
+      state.theme = data.theme || state.theme;
+      state.bestStreak = data.bestStreak || 0;
+      save("planner_tasks", state.tasks);
+      save("planner_completions", state.completions);
+      save("planner_notes", state.notes);
+      save("planner_theme", state.theme);
+      save("planner_best_streak", state.bestStreak);
+      applyTheme();
+      updateNotesField();
+      render();
+      showToast("Backup restored");
+    } catch (err) {
+      showToast("Couldn't read that file");
+    }
+    el("import-file").value = "";
+  };
+  reader.readAsText(file);
+});
+
+function updateNotifBtn() {
+  const btn = el("notif-btn");
+  if (!("Notification" in window)) { btn.textContent = "Notifications not supported here"; btn.disabled = true; return; }
+  if (Notification.permission === "granted") btn.textContent = "Notifications on";
+  else if (Notification.permission === "denied") btn.textContent = "Notifications blocked — check phone settings";
+  else btn.textContent = "Enable notifications";
+}
+el("notif-btn").addEventListener("click", () => {
+  if (!("Notification" in window)) return;
+  Notification.requestPermission().then(perm => {
+    updateNotifBtn();
+    if (perm === "granted") showToast("Notifications enabled");
+  });
+});
+
+function checkTaskAlarms() {
+  if (!("Notification" in window) || Notification.permission !== "granted") return;
+  const now = new Date();
+  const k = dateKey(now);
+  const notified = JSON.parse(localStorage.getItem("planner_notified") || "{}");
+  const firedToday = new Set(notified[k] || []);
+  const dayStatus = state.completions[k] || {};
+  let changed = false;
+  state.tasks.forEach(t => {
+    if (!t.time || firedToday.has(t.id)) return;
+    if (dayStatus[t.id] === "done" || dayStatus[t.id] === "skipped") return;
+    const [h, m] = t.time.split(":").map(Number);
+    const taskMinutes = h * 60 + m;
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    if (nowMinutes >= taskMinutes && nowMinutes <= taskMinutes + 1) {
+      try {
+        const n = new Notification("Time for: " + t.text, { body: "Tap to open your planner", tag: t.id + "-" + k });
+        n.onclick = () => { window.focus(); n.close(); };
+      } catch (e) {}
+      if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+      firedToday.add(t.id);
+      changed = true;
+    }
+  });
+  if (changed) {
+    notified[k] = Array.from(firedToday);
+    localStorage.setItem("planner_notified", JSON.stringify(notified));
+  }
+}
+setInterval(checkTaskAlarms, 20000);
+checkTaskAlarms();
+updateNotifBtn();
+
+applyTheme();
+renderSwatches();
+updateNotesField();
+render();
+</script>
+</body>
+</html>
